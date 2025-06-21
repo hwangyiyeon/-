@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -17,19 +16,19 @@
       align-items: center;
       justify-content: center;
       height: 100vh;
+      user-select: none;
     }
     #gameCanvas {
       background: #fff8e7;
       border-radius: 12px;
       box-shadow: 0 0 15px rgba(0,0,0,0.2);
       touch-action: none;
+      display: block;
     }
     #startScreen {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
       background: rgba(255, 248, 231, 0.95);
       display: flex;
       flex-direction: column;
@@ -38,12 +37,12 @@
       text-align: center;
       font-size: 24px;
       color: #d17c25;
-      z-index: 2;
-      animation: fadeIn 2s ease-in-out;
+      z-index: 10;
+      animation: fadeIn 1.5s ease-in-out;
     }
     @keyframes fadeIn {
-      0% { opacity: 0; transform: translateY(-20px); }
-      100% { opacity: 1; transform: translateY(0); }
+      0% {opacity: 0; transform: translateY(-20px);}
+      100% {opacity: 1; transform: translateY(0);}
     }
     #startBtn {
       margin-top: 20px;
@@ -54,23 +53,26 @@
       border-radius: 8px;
       color: white;
       cursor: pointer;
+      user-select: none;
     }
     #score {
       margin-top: 12px;
       font-size: 20px;
       color: #d17c25;
+      user-select: none;
+      position: relative;
+      z-index: 5;
     }
     #feverEffect {
       position: absolute;
       width: 100%;
       height: 100%;
-      top: 0;
-      left: 0;
+      top: 0; left: 0;
       pointer-events: none;
       background: repeating-radial-gradient(circle at center, rgba(255,255,255,0.3), rgba(255,255,255,0) 20px);
       animation: sparkle 1.2s infinite;
       display: none;
-      z-index: 1;
+      z-index: 8;
     }
     @keyframes sparkle {
       0% { transform: scale(1); opacity: 0.6; }
@@ -85,7 +87,7 @@
       border-radius: 50%;
       pointer-events: none;
       animation: pop 0.5s ease-out;
-      z-index: 3;
+      z-index: 9;
     }
     @keyframes pop {
       0% { transform: scale(0.5); opacity: 1; }
@@ -102,8 +104,9 @@
       border-radius: 15px;
       font-size: 28px;
       color: #d17c25;
-      z-index: 10;
+      z-index: 20;
       display: none;
+      user-select: none;
     }
   </style>
 </head>
@@ -119,51 +122,608 @@
   <div id="score">점수: 0 | 최고: 0</div>
 
   <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const startScreen = document.getElementById('startScreen');
+    const startBtn = document.getElementById('startBtn');
+    const scoreDiv = document.getElementById('score');
+    const feverEffect = document.getElementById('feverEffect');
+    const stageClearMessage = document.getElementById('stageClearMessage');
+
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
+
+    // 게임 상태 변수
+    let gameRunning = false;
     let score = 0;
     let highScore = 0;
     let stage = 1;
     let feverMode = false;
+    let feverCount = 0;
 
-    const feverEffect = document.getElementById('feverEffect');
+    // 배경 구름 스크롤 변수
+    let cloudX = 0;
 
-    function updateScoreDisplay() {
-      document.getElementById('score').textContent = `점수: ${score} | 최고: ${highScore}`;
-    }
+    // 플레이어 오브젝트
+    const player = {
+      x: WIDTH / 2 - 25,
+      y: HEIGHT - 80,
+      width: 50,
+      height: 50,
+      dx: 0,
+      dy: 0,
+      gravity: 0.7,
+      jumpStrength: -14,
+      onGround: true,
+      speed: 6,
+      color: '#f5a623',
+      draw() {
+        // 아기 얼굴 스타일 간단하게 그리기
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.ellipse(this.x + this.width / 2, this.y + this.height / 2, this.width/2, this.height/2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // 눈
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(this.x + this.width*0.35, this.y + this.height*0.4, 5, 0, Math.PI * 2);
+        ctx.arc(this.x + this.width*0.65, this.y + this.height*0.4, 5, 0, Math.PI * 2);
+        ctx.fill();
+        // 입
+        ctx.strokeStyle = '#800000';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.x + this.width/2, this.y + this.height*0.65, 12, 0, Math.PI);
+        ctx.stroke();
+      },
+      update() {
+        // 좌우 움직임 적용
+        this.x += this.dx;
+        if(this.x < 0) this.x = 0;
+        if(this.x + this.width > WIDTH) this.x = WIDTH - this.width;
 
-    function showCollectEffect(x, y) {
-      const effect = document.createElement('div');
-      effect.className = 'collectEffect';
-      effect.style.left = x + 'px';
-      effect.style.top = y + 'px';
-      document.body.appendChild(effect);
-      setTimeout(() => document.body.removeChild(effect), 500);
-    }
+        // 중력 및 점프
+        this.dy += this.gravity;
+        this.y += this.dy;
 
-    function activateFever() {
-      feverMode = true;
-      feverEffect.style.display = 'block';
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      setTimeout(() => {
-        feverMode = false;
-        feverEffect.style.display = 'none';
-      }, 5000);
-    }
+        if(this.y + this.height >= HEIGHT - 20) {
+          this.y = HEIGHT - 20 - this.height;
+          this.dy = 0;
+          this.onGround = true;
+        } else {
+          this.onGround = false;
+        }
+      },
+      jump() {
+        if(this.onGround) {
+          this.dy = this.jumpStrength;
+          this.onGround = false;
+          playSound(jumpSound);
+        }
+      }
+    };
 
-    function checkStageClear() {
-      if (score > 0 && score % 20 === 0) {
-        showStageClear();
-        if (navigator.vibrate) navigator.vibrate(200);
-        stage++;
+    // 플랫폼 배열
+    let platforms = [];
+    const platformCount = 6;
+    const platformWidth = 100;
+    const platformHeight = 15;
+
+    function createPlatforms() {
+      platforms = [];
+      let spacing = HEIGHT / platformCount;
+      for(let i=0; i < platformCount; i++) {
+        let px = Math.random() * (WIDTH - platformWidth);
+        let py = HEIGHT - i * spacing - platformHeight;
+        platforms.push({x: px, y: py, width: platformWidth, height: platformHeight});
       }
     }
 
-    function showStageClear() {
-      const msg = document.getElementById('stageClearMessage');
-      msg.style.display = 'block';
-      setTimeout(() => {
-        msg.style.display = 'none';
-      }, 2000);
+    function drawPlatforms() {
+      ctx.fillStyle = '#d17c25';
+      platforms.forEach(p => {
+        ctx.fillRect(p.x, p.y, p.width, p.height);
+      });
     }
-  </script>
-</body>
-</html>
+
+    function updatePlatforms() {
+      platforms.forEach(p => {
+        p.y += feverMode ? 5 : 2; // 피버타임 시 빠르게 올라감
+        if(p.y > HEIGHT) {
+          p.y = 0;
+          p.x = Math.random() * (WIDTH - platformWidth);
+          incrementScore();
+        }
+      });
+    }
+
+    // 달빵 아이템
+    let dalbbangs = [];
+    const dalbbangSize = 30;
+
+    function createDalbbang() {
+      if(feverMode) return; // 피버타임 중에는 안 생성
+      if(Math.random() < 0.01) { // 확률적 생성
+        let x = Math.random() * (WIDTH - dalbbangSize);
+        let y = -dalbbangSize;
+        dalbbangs.push({x, y, width: dalbbangSize, height: dalbbangSize});
+      }
+    }
+    function drawDalbbang() {
+      dalbbangs.forEach(d => {
+        ctx.fillStyle = '#f9d29d'; // 달빵 색감
+        ctx.beginPath();
+        ctx.ellipse(d.x + d.width/2, d.y + d.height/2, d.width/2, d.height/2, 0, 0, Math.PI*2);
+        ctx.fill();
+        // 빵 위 점들
+        ctx.fillStyle = '#d89b60';
+        for(let i=0; i<5; i++) {
+          let px = d.x + 5 + i*5;
+          let py = d.y + 10 + (i%2)*5;
+          ctx.beginPath();
+          ctx.arc(px, py, 3, 0, Math.PI*2);
+          ctx.fill();
+        }
+      });
+    }
+    function updateDalbbang() {
+      dalbbangs.forEach(d => {
+        d.y += feverMode ? 5 : 2;
+      });
+      dalbbangs = dalbbangs.filter(d => d.y < HEIGHT);
+    }
+
+    // 별사탕 아이템 (다양한 색상)
+    let stars = [];
+    const starSize = 25;
+    const starColors = ['#ffb3ba', '#bae1ff', '#baffc9', '#ffffba', '#ffdfba'];
+
+    function createStar() {
+      if(feverMode) return; // 피버타임 중 생성 안 함
+      if(Math.random() < 0.02) {
+        let x = Math.random() * (WIDTH - starSize);
+        let y = -starSize;
+        let color = starColors[Math.floor(Math.random() * starColors.length)];
+        stars.push({x, y, width: starSize, height: starSize, color});
+      }
+    }
+    function drawStar(s) {
+      ctx.fillStyle = s.color;
+      ctx.beginPath();
+      let cx = s.x + s.width/2;
+      let cy = s.y + s.height/2;
+      let spikes = 5;
+      let outerRadius = s.width/2;
+      let innerRadius = outerRadius / 2.5;
+      let rot = Math.PI / 2 * 3;
+      let step = Math.PI / spikes;
+      ctx.moveTo(cx, cy - outerRadius);
+      for(let i=0; i<spikes; i++) {
+        let x = cx + Math.cos(rot) * outerRadius;
+        let y = cy + Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+        x = cx + Math.cos(rot) * innerRadius;
+        y = cy + Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+      }
+      ctx.lineTo(cx, cy - outerRadius);
+      ctx.closePath();
+      ctx.fill();
+      // 별 테두리
+      ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    function drawStars() {
+      stars.forEach(drawStar);
+    }
+    function updateStars() {
+      stars.forEach(s => {
+        s.y += feverMode ? 5 : 3;
+      });
+      stars = stars.filter(s => s.y < HEIGHT);
+    }
+
+    // 충돌 검사 함수 (AABB)
+    function isColliding(a, b) {
+      return (
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y
+      );
+    }
+
+    // 점수 증가 처리 및 피버타임 진입 체크
+    function incrementScore() {
+      score++;
+      if(score > highScore) highScore = score;
+      updateScoreDisplay();
+
+      if(!feverMode && feverCount >= 5) {
+        activateFever();
+        feverCount = 0;
+      }
+
+      checkStageClear();
+    }
+
+    // 점수, 최고점 업데이트 UI
+    function updateScoreDisplay() {
+      scoreDiv.textContent = `점수: ${score} | 최고: ${highScore} | 스테이지: ${stage}` + (feverMode ? " | 🔥피버타임🔥" : "");
+    }
+
+    // 피버타임 활성화
+    function activateFever() {
+      feverMode = true;
+      feverEffect.style.display = 'block';
+      if(navigator.vibrate) navigator.vibrate([100,50,100]);
+      setTimeout(() => {
+        feverMode = false;
+        feverEffect.style.display = '<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>🌕 뚜뚜의 달빵 점프 피버 게임</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(to top, #87ceeb, #fff8e7);
+      font-family: 'Jua', sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      user-select: none;
+    }
+    #gameCanvas {
+      background: #fff8e7;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      touch-action: none;
+      display: block;
+    }
+    #startScreen {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255, 248, 231, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 24px;
+      color: #d17c25;
+      z-index: 10;
+      animation: fadeIn 1.5s ease-in-out;
+    }
+    @keyframes fadeIn {
+      0% {opacity: 0; transform: translateY(-20px);}
+      100% {opacity: 1; transform: translateY(0);}
+    }
+    #startBtn {
+      margin-top: 20px;
+      padding: 12px 24px;
+      font-size: 20px;
+      background: #f5a623;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+      user-select: none;
+    }
+    #score {
+      margin-top: 12px;
+      font-size: 20px;
+      color: #d17c25;
+      user-select: none;
+      position: relative;
+      z-index: 5;
+    }
+    #feverEffect {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0; left: 0;
+      pointer-events: none;
+      background: repeating-radial-gradient(circle at center, rgba(255,255,255,0.3), rgba(255,255,255,0) 20px);
+      animation: sparkle 1.2s infinite;
+      display: none;
+      z-index: 8;
+    }
+    @keyframes sparkle {
+      0% { transform: scale(1); opacity: 0.6; }
+      50% { transform: scale(1.05); opacity: 0.9; }
+      100% { transform: scale(1); opacity: 0.6; }
+    }
+    .collectEffect {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      background: radial-gradient(circle, #fff, #ff0);
+      border-radius: 50%;
+      pointer-events: none;
+      animation: pop 0.5s ease-out;
+      z-index: 9;
+    }
+    @keyframes pop {
+      0% { transform: scale(0.5); opacity: 1; }
+      100% { transform: scale(1.5); opacity: 0; }
+    }
+    #stageClearMessage {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #fff8e7;
+      border: 3px solid #f5a623;
+      padding: 20px 30px;
+      border-radius: 15px;
+      font-size: 28px;
+      color: #d17c25;
+      z-index: 20;
+      display: none;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="startScreen">
+    <h1>뚜뚜의 달빵 점프</h1>
+    <p>달빵을 먹으며 올라가요!<br>별사탕을 모아 피버 타임도 즐겨봐요 ✨</p>
+    <button id="startBtn">게임 시작</button>
+  </div>
+  <div id="feverEffect"></div>
+  <div id="stageClearMessage">🎉 스테이지 클리어! 🎉</div>
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <div id="score">점수: 0 | 최고: 0</div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const startScreen = document.getElementById('startScreen');
+    const startBtn = document.getElementById('startBtn');
+    const scoreDiv = document.getElementById('score');
+    const feverEffect = document.getElementById('feverEffect');
+    const stageClearMessage = document.getElementById('stageClearMessage');
+
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
+
+    // 게임 상태 변수
+    let gameRunning = false;
+    let score = 0;
+    let highScore = 0;
+    let stage = 1;
+    let feverMode = false;
+    let feverCount = 0;
+
+    // 배경 구름 스크롤 변수
+    let cloudX = 0;
+
+    // 플레이어 오브젝트
+    const player = {
+      x: WIDTH / 2 - 25,
+      y: HEIGHT - 80,
+      width: 50,
+      height: 50,
+      dx: 0,
+      dy: 0,
+      gravity: 0.7,
+      jumpStrength: -14,
+      onGround: true,
+      speed: 6,
+      color: '#f5a623',
+      draw() {
+        // 아기 얼굴 스타일 간단하게 그리기
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.ellipse(this.x + this.width / 2, this.y + this.height / 2, this.width/2, this.height/2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // 눈
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(this.x + this.width*0.35, this.y + this.height*0.4, 5, 0, Math.PI * 2);
+        ctx.arc(this.x + this.width*0.65, this.y + this.height*0.4, 5, 0, Math.PI * 2);
+        ctx.fill();
+        // 입
+        ctx.strokeStyle = '#800000';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.x + this.width/2, this.y + this.height*0.65, 12, 0, Math.PI);
+        ctx.stroke();
+      },
+      update() {
+        // 좌우 움직임 적용
+        this.x += this.dx;
+        if(this.x < 0) this.x = 0;
+        if(this.x + this.width > WIDTH) this.x = WIDTH - this.width;
+
+        // 중력 및 점프
+        this.dy += this.gravity;
+        this.y += this.dy;
+
+        if(this.y + this.height >= HEIGHT - 20) {
+          this.y = HEIGHT - 20 - this.height;
+          this.dy = 0;
+          this.onGround = true;
+        } else {
+          this.onGround = false;
+        }
+      },
+      jump() {
+        if(this.onGround) {
+          this.dy = this.jumpStrength;
+          this.onGround = false;
+          playSound(jumpSound);
+        }
+      }
+    };
+
+    // 플랫폼 배열
+    let platforms = [];
+    const platformCount = 6;
+    const platformWidth = 100;
+    const platformHeight = 15;
+
+    function createPlatforms() {
+      platforms = [];
+      let spacing = HEIGHT / platformCount;
+      for(let i=0; i < platformCount; i++) {
+        let px = Math.random() * (WIDTH - platformWidth);
+        let py = HEIGHT - i * spacing - platformHeight;
+        platforms.push({x: px, y: py, width: platformWidth, height: platformHeight});
+      }
+    }
+
+    function drawPlatforms() {
+      ctx.fillStyle = '#d17c25';
+      platforms.forEach(p => {
+        ctx.fillRect(p.x, p.y, p.width, p.height);
+      });
+    }
+
+    function updatePlatforms() {
+      platforms.forEach(p => {
+        p.y += feverMode ? 5 : 2; // 피버타임 시 빠르게 올라감
+        if(p.y > HEIGHT) {
+          p.y = 0;
+          p.x = Math.random() * (WIDTH - platformWidth);
+          incrementScore();
+        }
+      });
+    }
+
+    // 달빵 아이템
+    let dalbbangs = [];
+    const dalbbangSize = 30;
+
+    function createDalbbang() {
+      if(feverMode) return; // 피버타임 중에는 안 생성
+      if(Math.random() < 0.01) { // 확률적 생성
+        let x = Math.random() * (WIDTH - dalbbangSize);
+        let y = -dalbbangSize;
+        dalbbangs.push({x, y, width: dalbbangSize, height: dalbbangSize});
+      }
+    }
+    function drawDalbbang() {
+      dalbbangs.forEach(d => {
+        ctx.fillStyle = '#f9d29d'; // 달빵 색감
+        ctx.beginPath();
+        ctx.ellipse(d.x + d.width/2, d.y + d.height/2, d.width/2, d.height/2, 0, 0, Math.PI*2);
+        ctx.fill();
+        // 빵 위 점들
+        ctx.fillStyle = '#d89b60';
+        for(let i=0; i<5; i++) {
+          let px = d.x + 5 + i*5;
+          let py = d.y + 10 + (i%2)*5;
+          ctx.beginPath();
+          ctx.arc(px, py, 3, 0, Math.PI*2);
+          ctx.fill();
+        }
+      });
+    }
+    function updateDalbbang() {
+      dalbbangs.forEach(d => {
+        d.y += feverMode ? 5 : 2;
+      });
+      dalbbangs = dalbbangs.filter(d => d.y < HEIGHT);
+    }
+
+    // 별사탕 아이템 (다양한 색상)
+    let stars = [];
+    const starSize = 25;
+    const starColors = ['#ffb3ba', '#bae1ff', '#baffc9', '#ffffba', '#ffdfba'];
+
+    function createStar() {
+      if(feverMode) return; // 피버타임 중 생성 안 함
+      if(Math.random() < 0.02) {
+        let x = Math.random() * (WIDTH - starSize);
+        let y = -starSize;
+        let color = starColors[Math.floor(Math.random() * starColors.length)];
+        stars.push({x, y, width: starSize, height: starSize, color});
+      }
+    }
+    function drawStar(s) {
+      ctx.fillStyle = s.color;
+      ctx.beginPath();
+      let cx = s.x + s.width/2;
+      let cy = s.y + s.height/2;
+      let spikes = 5;
+      let outerRadius = s.width/2;
+      let innerRadius = outerRadius / 2.5;
+      let rot = Math.PI / 2 * 3;
+      let step = Math.PI / spikes;
+      ctx.moveTo(cx, cy - outerRadius);
+      for(let i=0; i<spikes; i++) {
+        let x = cx + Math.cos(rot) * outerRadius;
+        let y = cy + Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+        x = cx + Math.cos(rot) * innerRadius;
+        y = cy + Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+      }
+      ctx.lineTo(cx, cy - outerRadius);
+      ctx.closePath();
+      ctx.fill();
+      // 별 테두리
+      ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    function drawStars() {
+      stars.forEach(drawStar);
+    }
+    function updateStars() {
+      stars.forEach(s => {
+        s.y += feverMode ? 5 : 3;
+      });
+      stars = stars.filter(s => s.y < HEIGHT);
+    }
+
+    // 충돌 검사 함수 (AABB)
+    function isColliding(a, b) {
+      return (
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y
+      );
+    }
+
+    // 점수 증가 처리 및 피버타임 진입 체크
+    function incrementScore() {
+      score++;
+      if(score > highScore) highScore = score;
+      updateScoreDisplay();
+
+      if(!feverMode && feverCount >= 5) {
+        activateFever();
+        feverCount = 0;
+      }
+
+      checkStageClear();
+    }
+
+    // 점수, 최고점 업데이트 UI
+    function updateScoreDisplay() {
+      scoreDiv.textContent = `점수: ${score} | 최고: ${highScore} | 스테이지: ${stage}` + (feverMode ? " | 🔥피버타임🔥" : "");
+    }
+
+    // 피버타임 활성화
+    function activateFever() {
+      feverMode = true;
+      feverEffect.style.display = 'block';
+      if(navigator.vibrate) navigator.vibrate([100,50,100]);
+      setTimeout(() => {
+        feverMode = false;
+        feverEffect.style.display = '
