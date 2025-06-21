@@ -133,7 +133,6 @@
     const WIDTH = canvas.width;
     const HEIGHT = canvas.height;
 
-    // 게임 상태 변수
     let gameRunning = false;
     let score = 0;
     let highScore = 0;
@@ -158,18 +157,15 @@
       speed: 6,
       color: '#f5a623',
       draw() {
-        // 아기 얼굴 스타일 간단하게 그리기
         ctx.fillStyle = this.color;
         ctx.beginPath();
         ctx.ellipse(this.x + this.width / 2, this.y + this.height / 2, this.width/2, this.height/2, 0, 0, Math.PI * 2);
         ctx.fill();
-        // 눈
         ctx.fillStyle = '#000';
         ctx.beginPath();
         ctx.arc(this.x + this.width*0.35, this.y + this.height*0.4, 5, 0, Math.PI * 2);
         ctx.arc(this.x + this.width*0.65, this.y + this.height*0.4, 5, 0, Math.PI * 2);
         ctx.fill();
-        // 입
         ctx.strokeStyle = '#800000';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -177,12 +173,10 @@
         ctx.stroke();
       },
       update() {
-        // 좌우 움직임 적용
         this.x += this.dx;
         if(this.x < 0) this.x = 0;
         if(this.x + this.width > WIDTH) this.x = WIDTH - this.width;
 
-        // 중력 및 점프
         this.dy += this.gravity;
         this.y += this.dy;
 
@@ -203,7 +197,7 @@
       }
     };
 
-    // 플랫폼 배열
+    // 플랫폼
     let platforms = [];
     const platformCount = 6;
     const platformWidth = 100;
@@ -228,7 +222,7 @@
 
     function updatePlatforms() {
       platforms.forEach(p => {
-        p.y += feverMode ? 5 : 2; // 피버타임 시 빠르게 올라감
+        p.y += feverMode ? 5 : 2;
         if(p.y > HEIGHT) {
           p.y = 0;
           p.x = Math.random() * (WIDTH - platformWidth);
@@ -242,20 +236,20 @@
     const dalbbangSize = 30;
 
     function createDalbbang() {
-      if(feverMode) return; // 피버타임 중에는 안 생성
-      if(Math.random() < 0.01) { // 확률적 생성
+      if(feverMode) return;
+      if(Math.random() < 0.01) {
         let x = Math.random() * (WIDTH - dalbbangSize);
         let y = -dalbbangSize;
         dalbbangs.push({x, y, width: dalbbangSize, height: dalbbangSize});
       }
     }
+
     function drawDalbbang() {
       dalbbangs.forEach(d => {
-        ctx.fillStyle = '#f9d29d'; // 달빵 색감
+        ctx.fillStyle = '#f9d29d';
         ctx.beginPath();
         ctx.ellipse(d.x + d.width/2, d.y + d.height/2, d.width/2, d.height/2, 0, 0, Math.PI*2);
         ctx.fill();
-        // 빵 위 점들
         ctx.fillStyle = '#d89b60';
         for(let i=0; i<5; i++) {
           let px = d.x + 5 + i*5;
@@ -266,100 +260,7 @@
         }
       });
     }
+
     function updateDalbbang() {
       dalbbangs.forEach(d => {
-        d.y += feverMode ? 5 : 2;
-      });
-      dalbbangs = dalbbangs.filter(d => d.y < HEIGHT);
-    }
-
-    // 별사탕 아이템 (다양한 색상)
-    let stars = [];
-    const starSize = 25;
-    const starColors = ['#ffb3ba', '#bae1ff', '#baffc9', '#ffffba', '#ffdfba'];
-
-    function createStar() {
-      if(feverMode) return; // 피버타임 중 생성 안 함
-      if(Math.random() < 0.02) {
-        let x = Math.random() * (WIDTH - starSize);
-        let y = -starSize;
-        let color = starColors[Math.floor(Math.random() * starColors.length)];
-        stars.push({x, y, width: starSize, height: starSize, color});
-      }
-    }
-    function drawStar(s) {
-      ctx.fillStyle = s.color;
-      ctx.beginPath();
-      let cx = s.x + s.width/2;
-      let cy = s.y + s.height/2;
-      let spikes = 5;
-      let outerRadius = s.width/2;
-      let innerRadius = outerRadius / 2.5;
-      let rot = Math.PI / 2 * 3;
-      let step = Math.PI / spikes;
-      ctx.moveTo(cx, cy - outerRadius);
-      for(let i=0; i<spikes; i++) {
-        let x = cx + Math.cos(rot) * outerRadius;
-        let y = cy + Math.sin(rot) * outerRadius;
-        ctx.lineTo(x, y);
-        rot += step;
-        x = cx + Math.cos(rot) * innerRadius;
-        y = cy + Math.sin(rot) * innerRadius;
-        ctx.lineTo(x, y);
-        rot += step;
-      }
-      ctx.lineTo(cx, cy - outerRadius);
-      ctx.closePath();
-      ctx.fill();
-      // 별 테두리
-      ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
-    function drawStars() {
-      stars.forEach(drawStar);
-    }
-    function updateStars() {
-      stars.forEach(s => {
-        s.y += feverMode ? 5 : 3;
-      });
-      stars = stars.filter(s => s.y < HEIGHT);
-    }
-
-    // 충돌 검사 함수 (AABB)
-    function isColliding(a, b) {
-      return (
-        a.x < b.x + b.width &&
-        a.x + a.width > b.x &&
-        a.y < b.y + b.height &&
-        a.y + a.height > b.y
-      );
-    }
-
-    // 점수 증가 처리 및 피버타임 진입 체크
-    function incrementScore() {
-      score++;
-      if(score > highScore) highScore = score;
-      updateScoreDisplay();
-
-      if(!feverMode && feverCount >= 5) {
-        activateFever();
-        feverCount = 0;
-      }
-
-      checkStageClear();
-    }
-
-    // 점수, 최고점 업데이트 UI
-    function updateScoreDisplay() {
-      scoreDiv.textContent = `점수: ${score} | 최고: ${highScore} | 스테이지: ${stage}` + (feverMode ? " | 🔥피버타임🔥" : "");
-    }
-
-    // 피버타임 활성화
-    function activateFever() {
-      feverMode = true;
-      feverEffect.style.display = 'block';
-      if(navigator.vibrate) navigator.vibrate([100,50,100]);
-      setTimeout(() => {
-        feverMode = false;
-        feverEffect.style.display = '
+        d.y
