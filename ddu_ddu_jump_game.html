@@ -1,353 +1,247 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>뚜뚜의 달빵 점프</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
-  html, body {
-    margin: 0; padding: 0;
-    overflow: hidden;
-    font-family: 'Jua', sans-serif;
-    background-color: #fff8e7;
-    overscroll-behavior: none;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-  }
-  canvas {
-    display: block;
-    background: url('https://cdn.pixabay.com/photo/2015/03/26/10/03/sky-690293_1280.jpg') repeat-x;
-    background-size: cover;
-    animation: scrollBg 30s linear infinite;
-    width: 100vw;
-    height: 50vh;
-  }
-  @keyframes scrollBg {
-    from { background-position: 0 0; }
-    to   { background-position: -1000px 0; }
-  }
-
-  #startScreen {
-    position: absolute;
-    top:0; left:0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(255, 248, 231, 0.95);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 20;
-    text-align: center;
-    padding: 20px;
-    box-sizing: border-box;
-  }
-  .animated-title {
-    animation: glow 2.5s ease-in-out infinite, float 3s ease-in-out infinite;
-    color: #f5a623;
-    font-size: 2em;
-    text-shadow:
-      0 0 5px #f5a623,
-      0 0 10px #ffdd88,
-      0 0 20px #ffe6b3;
-    margin: 0 0 10px 0;
-  }
-  @keyframes glow {
-    0%, 100% {
-      text-shadow:
-        0 0 5px #f5a623,
-        0 0 10px #ffdd88,
-        0 0 20px #ffe6b3;
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>뚜뚜의 달빵 점프 미니게임</title>
+  <style>
+    body {
+      margin: 0; 
+      padding: 0; 
+      background: linear-gradient(to top, #87ceeb, #fff8e7);
+      font-family: 'Jua', sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
     }
-    50% {
-      text-shadow:
-        0 0 10px #ffd700,
-        0 0 20px #ffcc33,
-        0 0 30px #ffcc33;
+    #gameCanvas {
+      background: #fff8e7;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      touch-action: none;
     }
-  }
-  @keyframes float {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.08); }
-  }
-  #startScreen p {
-    font-size: 1.2em;
-    color: #555;
-    margin: 0 0 20px 0;
-  }
-  .btn {
-    font-size: 1.2em;
-    padding: 12px 24px;
-    background-color: #f5a623;
-    border: none;
-    border-radius: 10px;
-    color: white;
-    cursor: pointer;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    touch-action: manipulation;
-    user-select: none;
-  }
-  #starCanvas {
-    position: absolute;
-    top: 0; left: 0;
-    z-index: 5;
-    pointer-events: none;
-    width: 100vw;
-    height: 100vh;
-  }
-  #gameCanvas {
-    display: block;
-    background-color: transparent;
-    margin: 0 auto;
-    border: 2px solid #f5a623;
-    border-radius: 12px;
-    touch-action: none;
-  }
-  #volumeControl {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background: rgba(245, 166, 35, 0.8);
-    border-radius: 20px;
-    padding: 8px 16px;
-    color: white;
-    font-weight: bold;
-    cursor: pointer;
-    user-select: none;
-    z-index: 30;
-  }
-  #scoreDisplay, #highScoreDisplay {
-    position: fixed;
-    top: 20px;
-    font-size: 1.2em;
-    font-weight: bold;
-    color: #d17c25;
-    text-shadow: 1px 1px 1px white;
-    user-select: none;
-  }
-  #scoreDisplay { left: 20px; }
-  #highScoreDisplay { right: 20px; }
-  #gameOverScreen {
-    position: absolute;
-    top:0; left:0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.7);
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    font-size: 2em;
-    font-weight: bold;
-    z-index: 25;
-    visibility: hidden;
-  }
-</style>
+    #startBtn {
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-size: 18px;
+      background: #f5a623;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.3s ease;
+    }
+    #startBtn:hover {
+      background: #d17c25;
+    }
+    #score {
+      margin-top: 12px;
+      font-size: 20px;
+      color: #d17c25;
+      user-select: none;
+    }
+  </style>
 </head>
 <body>
-  <canvas id="starCanvas"></canvas>
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <button id="startBtn">게임 시작</button>
+  <div id="score">점수: 0</div>
 
-  <div id="startScreen">
-    <h1 class="animated-title">🐣 뚜뚜의 달빵 점프</h1>
-    <p>뚜뚜와 함께 달빵을 먹으며 모험을 떠나보세요!</p>
-    <button id="startBtn" class="btn">시작하기</button>
-  </div>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const startBtn = document.getElementById('startBtn');
+    const scoreDiv = document.getElementById('score');
 
-  <canvas id="gameCanvas" width="800" height="400"></canvas>
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
 
-  <div id="volumeControl">🔊 음량: 50%</div>
-  <div id="scoreDisplay">점수: 0</div>
-  <div id="highScoreDisplay">최고점수: 0</div>
-  <div id="gameOverScreen">
-    게임 오버!<br />
-    <button id="restartBtn" class="btn" style="font-size:1em; margin-top:20px;">다시 시작</button>
-  </div>
+    let gameRunning = false;
+    let score = 0;
+    let player = {
+      x: WIDTH / 2 - 25,
+      y: HEIGHT - 80,
+      width: 50,
+      height: 50,
+      dy: 0,
+      gravity: 0.7,
+      jumpStrength: -14,
+      onGround: true,
+      color: '#f5a623',
+      draw() {
+        // 아기 얼굴 스타일 간단하게 그리기
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.ellipse(this.x + this.width / 2, this.y + this.height / 2, this.width/2, this.height/2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // 눈
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(this.x + this.width*0.35, this.y + this.height*0.4, 5, 0, Math.PI * 2);
+        ctx.arc(this.x + this.width*0.65, this.y + this.height*0.4, 5, 0, Math.PI * 2);
+        ctx.fill();
+        // 입
+        ctx.strokeStyle = '#800000';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.x + this.width/2, this.y + this.height*0.65, 12, 0, Math.PI);
+        ctx.stroke();
+      },
+      update() {
+        this.dy += this.gravity;
+        this.y += this.dy;
 
-<script>
-  // --- 배경 별 떨어짐 ---
-  const starCanvas = document.getElementById('starCanvas');
-  const starCtx = starCanvas.getContext('2d');
-  function resizeStarCanvas() {
-    starCanvas.width = window.innerWidth;
-    starCanvas.height = window.innerHeight;
-  }
-  resizeStarCanvas();
-  window.addEventListener('resize', resizeStarCanvas);
+        if(this.y + this.height >= HEIGHT - 20) {
+          this.y = HEIGHT - 20 - this.height;
+          this.dy = 0;
+          this.onGround = true;
+        } else {
+          this.onGround = false;
+        }
+      },
+      jump() {
+        if(this.onGround) {
+          this.dy = this.jumpStrength;
+          this.onGround = false;
+          playSound(jumpSound);
+        }
+      }
+    };
 
-  const stars = Array.from({ length: 40 }, () => ({
-    x: Math.random() * starCanvas.width,
-    y: Math.random() * starCanvas.height,
-    size: Math.random() * 2 + 1,
-    speed: Math.random() * 1 + 0.5
-  }));
+    let platforms = [];
+    const platformCount = 5;
+    const platformWidth = 100;
+    const platformHeight = 15;
 
-  function drawStars() {
-    starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
-    starCtx.fillStyle = '#ffffff';
-    stars.forEach(star => {
-      starCtx.beginPath();
-      starCtx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-      starCtx.fill();
-      star.y += star.speed;
-      if (star.y > starCanvas.height) {
-        star.y = 0;
-        star.x = Math.random() * starCanvas.width;
+    function createPlatforms() {
+      platforms = [];
+      let spacing = HEIGHT / platformCount;
+      for(let i=0; i < platformCount; i++) {
+        let px = Math.random() * (WIDTH - platformWidth);
+        let py = HEIGHT - i * spacing - platformHeight;
+        platforms.push({x: px, y: py, width: platformWidth, height: platformHeight});
+      }
+    }
+
+    function drawPlatforms() {
+      ctx.fillStyle = '#d17c25';
+      platforms.forEach(p => {
+        ctx.fillRect(p.x, p.y, p.width, p.height);
+      });
+    }
+
+    function updatePlatforms() {
+      platforms.forEach(p => {
+        p.y += 2; // 플랫폼 아래로 스크롤
+        if(p.y > HEIGHT) {
+          p.y = 0;
+          p.x = Math.random() * (WIDTH - platformWidth);
+          score++;
+          scoreDiv.textContent = '점수: ' + score;
+          playSound(scoreSound);
+        }
+      });
+    }
+
+    function checkCollision() {
+      platforms.forEach(p => {
+        if(player.dy > 0 &&
+          player.x + player.width > p.x &&
+          player.x < p.x + p.width &&
+          player.y + player.height > p.y &&
+          player.y + player.height < p.y + p.height
+        ) {
+          player.y = p.y - player.height;
+          player.dy = 0;
+          player.onGround = true;
+        }
+      });
+    }
+
+    // 배경 그리기 (간단 구름과 하늘)
+    function drawBackground() {
+      ctx.fillStyle = '#87ceeb';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      // 구름
+      ctx.fillStyle = '#fff';
+      let cloudX = (Date.now() / 30) % (WIDTH + 100) - 100;
+      ctx.beginPath();
+      ctx.ellipse(cloudX, 100, 50, 30, 0, 0, Math.PI * 2);
+      ctx.ellipse(cloudX + 40, 100, 40, 30, 0, 0, Math.PI * 2);
+      ctx.ellipse(cloudX + 70, 110, 45, 35, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 사운드 효과 준비
+    const jumpSound = new Audio('https://cdn.pixabay.com/download/audio/2021/09/09/audio_3d64f8e5f5.mp3?filename=jump-14558.mp3');
+    const scoreSound = new Audio('https://cdn.pixabay.com/download/audio/2021/09/10/audio_37b3b3a64a.mp3?filename=coin-14003.mp3');
+
+    function playSound(sound) {
+      sound.pause();
+      sound.currentTime = 0;
+      sound.volume = 0.3;
+      sound.play().catch(e => {
+        // 모바일 사파리 등에서 자동 재생 제한으로 오류 무시
+      });
+    }
+
+    // 게임 루프
+    function gameLoop() {
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+      drawBackground();
+      drawPlatforms();
+      player.update();
+      player.draw();
+      checkCollision();
+      updatePlatforms();
+
+      if(player.y > HEIGHT) {
+        gameOver();
+        return;
+      }
+
+      if(gameRunning) {
+        requestAnimationFrame(gameLoop);
+      }
+    }
+
+    function gameOver() {
+      gameRunning = false;
+      startBtn.style.display = 'block';
+      alert('게임 오버! 점수: ' + score);
+      score = 0;
+      scoreDiv.textContent = '점수: 0';
+      createPlatforms();
+      player.y = HEIGHT - 80;
+      player.dy = 0;
+    }
+
+    startBtn.addEventListener('click', () => {
+      if(gameRunning) return;
+      gameRunning = true;
+      startBtn.style.display = 'none';
+      score = 0;
+      scoreDiv.textContent = '점수: 0';
+      createPlatforms();
+      player.y = HEIGHT - 80;
+      player.dy = 0;
+      gameLoop();
+    });
+
+    // 터치 또는 스페이스바 점프 이벤트
+    window.addEventListener('touchstart', e => {
+      if(gameRunning) player.jump();
+    });
+
+    window.addEventListener('keydown', e => {
+      if(e.code === 'Space' && gameRunning) {
+        player.jump();
       }
     });
-    requestAnimationFrame(drawStars);
-  }
-  drawStars();
-
-  // --- 게임 변수 및 초기화 ---
-  const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
-  const canvasWidth = canvas.width;
-  const canvasHeight = canvas.height;
-
-  const startScreen = document.getElementById('startScreen');
-  const startBtn = document.getElementById('startBtn');
-  const gameOverScreen = document.getElementById('gameOverScreen');
-  const restartBtn = document.getElementById('restartBtn');
-
-  const scoreDisplay = document.getElementById('scoreDisplay');
-  const highScoreDisplay = document.getElementById('highScoreDisplay');
-  const volumeControl = document.getElementById('volumeControl');
-
-  // 캐릭터(뚜뚜) 위치 및 상태
-  let ttuX = 100;
-  let ttuY = canvasHeight - 80;
-  let isJumping = false;
-  let velocityY = 0;
-  const gravity = 0.6;
-
-  // 달빵 아이템 리스트
-  const breadImgSrc = "https://cdn.pixabay.com/photo/2014/12/21/23/28/bread-576118_960_720.png"; 
-  // (이미지 없으면 단색으로 대체 가능)
-  const breadSize = 40;
-
-  let breads = [];
-
-  // 별사탕 아이템 리스트
-  const starColors = ['#ffcc00', '#ff6666', '#66ccff', '#cc66ff', '#66ff99'];
-  let stars = [];
-  const starSize = 25;
-
-  // 피버타임 상태
-  let isFever = false;
-  let feverTimeout = null;
-  let feverFlashInterval = null;
-
-  // 점수 및 최고 점수
-  let score = 0;
-  let highScore = localStorage.getItem('highScore') || 0;
-
-  highScoreDisplay.textContent = "최고점수: " + highScore;
-
-  // 볼륨 상태
-  let volume = 0.5;
-
-  // --- 이미지 로딩 ---
-  const breadImg = new Image();
-  breadImg.src = breadImgSrc;
-
-  // 뚜뚜 얼굴 이미지 (아가 얼굴 느낌, PNG로 대체 가능)
-  const ttuFaceImg = new Image();
-  // 아래 주소는 예시, 실제 이미지로 바꾸세요
-  ttuFaceImg.src = "https://i.imgur.com/eDS9CFO.png"; 
-
-  // --- 사운드 --- (간단한 예, 실제 mp3 경로 필요)
-  const bgm = new Audio("https://cdn.pixabay.com/download/audio/2023/03/17/audio_6dc403a0f0.mp3?filename=spring-morning-125163.mp3");
-  bgm.loop = true;
-  bgm.volume = volume;
-
-  const feverMusic = new Audio("https://cdn.pixabay.com/download/audio/2023/03/23/audio_f47f78a5b2.mp3?filename=happy-funk-13467.mp3");
-  feverMusic.loop = true;
-  feverMusic.volume = volume;
-
-  const jumpSound = new Audio("https://cdn.pixabay.com/download/audio/2021/10/30/audio_34c7d2bf33.mp3?filename=jump-5.mp3");
-  jumpSound.volume = volume;
-
-  const gameOverSound = new Audio("https://cdn.pixabay.com/download/audio/2023/04/18/audio_03d7877e5d.mp3?filename=game-over-2.mp3");
-  gameOverSound.volume = volume;
-
-  // --- 함수: 점프 ---
-  function jump() {
-    if (!isJumping) {
-      isJumping = true;
-      velocityY = -12;
-      jumpSound.currentTime = 0;
-      jumpSound.play();
-    }
-  }
-
-  // --- 게임 아이템 생성 ---
-  function createBread() {
-    // 랜덤 위치 오른쪽에서 시작, y는 바닥 근처
-    return {
-      x: canvasWidth + Math.random() * 300,
-      y: canvasHeight - 60,
-      width: breadSize,
-      height: breadSize,
-      speed: 3
-    };
-  }
-  function createStarCandy() {
-    return {
-      x: canvasWidth + Math.random() * 300,
-      y: canvasHeight - 80,
-      size: starSize,
-      speed: 4,
-      color: starColors[Math.floor(Math.random() * starColors.length)]
-    };
-  }
-
-  // --- 충돌 감지 ---
-  function isColliding(a, b) {
-    return (
-      a.x < b.x + b.width &&
-      a.x + a.width > b.x &&
-      a.y < b.y + b.height &&
-      a.y + a.height > b.y
-    );
-  }
-
-  // --- 게임 상태 ---
-  let gameStarted = false;
-  let gameOver = false;
-  let starCandyCount = 0;
-
-  // --- 피버타임 시작 ---
-  function startFeverTime() {
-    isFever = true;
-    feverMusic.currentTime = 0;
-    feverMusic.volume = volume;
-    feverMusic.play();
-    bgm.pause();
-
-    // 배경 색 반짝임 효과
-    let on = false;
-    feverFlashInterval = setInterval(() => {
-      document.body.style.backgroundColor = on ? '#fff8e7' : '#fff1a8';
-      on = !on;
-    }, 400);
-
-    feverTimeout = setTimeout(() => {
-      endFeverTime();
-    }, 7000);
-  }
-  // --- 피버타임 종료 ---
-  function endFeverTime() {
-    isFever = false;
-    feverMusic.pause();
-    bgm.currentTime = 0;
-    bgm.play();
-    document.body.style.backgroundColor = '#fff8e7';
-    clearInterval(feverFlashInterval);
-    starCandyCount = 0;
-  }
-
-  // --- 게임 오버 처리 ---
-  function handleGameOver() {
+  </script>
+</body>
+</html>
