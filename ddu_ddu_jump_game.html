@@ -1,13 +1,12 @@
-<!DOCTYPE html>
-<html lang="ko">
+<!DOCTYPE html><html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>뚜뚜의 달빵 점프 미니게임</title>
+  <title>🌕 뚜뚜의 달빵 점프 피버 게임</title>
   <style>
     body {
-      margin: 0; 
-      padding: 0; 
+      margin: 0;
+      padding: 0;
       background: linear-gradient(to top, #87ceeb, #fff8e7);
       font-family: 'Jua', sans-serif;
       overflow: hidden;
@@ -23,225 +22,296 @@
       box-shadow: 0 0 15px rgba(0,0,0,0.2);
       touch-action: none;
     }
+    #startScreen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 248, 231, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 24px;
+      color: #d17c25;
+      z-index: 2;
+      animation: fadeIn 2s ease-in-out;
+    }
+    @keyframes fadeIn {
+      0% { opacity: 0; transform: translateY(-20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
     #startBtn {
-      margin-top: 15px;
-      padding: 10px 20px;
-      font-size: 18px;
+      margin-top: 20px;
+      padding: 12px 24px;
+      font-size: 20px;
       background: #f5a623;
       border: none;
       border-radius: 8px;
       color: white;
       cursor: pointer;
-      user-select: none;
-      transition: background 0.3s ease;
-    }
-    #startBtn:hover {
-      background: #d17c25;
     }
     #score {
       margin-top: 12px;
       font-size: 20px;
       color: #d17c25;
-      user-select: none;
+    }
+    #feverEffect {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+      animation: pulse 1s infinite;
+      display: none;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      50% { opacity: 0.8; }
+      100% { opacity: 0.4; }
     }
   </style>
 </head>
 <body>
+  <div id="startScreen">
+    <h1>뚜뚜의 달빵 점프</h1>
+    <p>달빵을 먹으며 올라가요!<br>별사탕을 모아 피버 타임도 즐겨봐요 ✨</p>
+    <button id="startBtn">게임 시작</button>
+  </div>
+  <div id="feverEffect"></div>
   <canvas id="gameCanvas" width="400" height="600"></canvas>
-  <button id="startBtn">게임 시작</button>
-  <div id="score">점수: 0</div>
+  <div id="score">점수: 0 | 최고: 0</div>  <script>
+    window.onload = function () {
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+      const startBtn = document.getElementById('startBtn');
+      const startScreen = document.getElementById('startScreen');
+      const scoreDiv = document.getElementById('score');
+      const feverEffect = document.getElementById('feverEffect');
 
-  <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const startBtn = document.getElementById('startBtn');
-    const scoreDiv = document.getElementById('score');
+      const WIDTH = canvas.width;
+      const HEIGHT = canvas.height;
+      let gameRunning = false;
+      let score = 0;
+      let bestScore = localStorage.getItem('bestScore') || 0;
+      let feverMode = false;
+      let feverScore = 0;
 
-    const WIDTH = canvas.width;
-    const HEIGHT = canvas.height;
+      const jumpSound = new Audio('https://cdn.pixabay.com/download/audio/2021/09/09/audio_3d64f8e5f5.mp3');
+      const scoreSound = new Audio('https://cdn.pixabay.com/download/audio/2021/09/10/audio_37b3b3a64a.mp3');
+      const feverMusic = new Audio('https://cdn.pixabay.com/download/audio/2022/03/15/audio_d3557376c3.mp3');
 
-    let gameRunning = false;
-    let score = 0;
-    let player = {
-      x: WIDTH / 2 - 25,
-      y: HEIGHT - 80,
-      width: 50,
-      height: 50,
-      dy: 0,
-      gravity: 0.7,
-      jumpStrength: -14,
-      onGround: true,
-      color: '#f5a623',
-      draw() {
-        // 아기 얼굴 스타일 간단하게 그리기
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.ellipse(this.x + this.width / 2, this.y + this.height / 2, this.width/2, this.height/2, 0, 0, Math.PI * 2);
-        ctx.fill();
-        // 눈
-        ctx.fillStyle = '#000';
-        ctx.beginPath();
-        ctx.arc(this.x + this.width*0.35, this.y + this.height*0.4, 5, 0, Math.PI * 2);
-        ctx.arc(this.x + this.width*0.65, this.y + this.height*0.4, 5, 0, Math.PI * 2);
-        ctx.fill();
-        // 입
-        ctx.strokeStyle = '#800000';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(this.x + this.width/2, this.y + this.height*0.65, 12, 0, Math.PI);
-        ctx.stroke();
-      },
-      update() {
-        this.dy += this.gravity;
-        this.y += this.dy;
+      function playSound(sound) {
+        sound.pause();
+        sound.currentTime = 0;
+        sound.volume = 0.4;
+        sound.play().catch(() => {});
+      }
 
-        if(this.y + this.height >= HEIGHT - 20) {
-          this.y = HEIGHT - 20 - this.height;
-          this.dy = 0;
-          this.onGround = true;
-        } else {
-          this.onGround = false;
+      const player = {
+        x: WIDTH / 2 - 25,
+        y: HEIGHT - 80,
+        width: 50,
+        height: 50,
+        dy: 0,
+        gravity: 0.7,
+        jumpStrength: -14,
+        onGround: true,
+        draw() {
+          ctx.fillStyle = '#f5a623';
+          ctx.beginPath();
+          ctx.ellipse(this.x + this.width / 2, this.y + this.height / 2, this.width/2, this.height/2, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#000';
+          ctx.beginPath();
+          ctx.arc(this.x + this.width*0.35, this.y + this.height*0.4, 5, 0, Math.PI * 2);
+          ctx.arc(this.x + this.width*0.65, this.y + this.height*0.4, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#800000';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(this.x + this.width/2, this.y + this.height*0.65, 12, 0, Math.PI);
+          ctx.stroke();
+        },
+        update() {
+          this.dy += this.gravity;
+          this.y += this.dy;
+          if(this.y + this.height >= HEIGHT - 20) {
+            this.y = HEIGHT - 20 - this.height;
+            this.dy = 0;
+            this.onGround = true;
+          } else {
+            this.onGround = false;
+          }
+        },
+        jump() {
+          if(this.onGround) {
+            this.dy = this.jumpStrength;
+            this.onGround = false;
+            playSound(jumpSound);
+          }
         }
-      },
-      jump() {
-        if(this.onGround) {
-          this.dy = this.jumpStrength;
-          this.onGround = false;
-          playSound(jumpSound);
+      };
+
+      let platforms = [];
+      let items = [];
+      const platformCount = 5;
+      const platformWidth = 100;
+      const platformHeight = 15;
+
+      function createPlatforms() {
+        platforms = [];
+        for(let i=0; i<platformCount; i++) {
+          let px = Math.random() * (WIDTH - platformWidth);
+          let py = HEIGHT - i * (HEIGHT / platformCount) - platformHeight;
+          platforms.push({x: px, y: py, width: platformWidth, height: platformHeight});
         }
       }
+
+      function drawPlatforms() {
+        ctx.fillStyle = '#d17c25';
+        platforms.forEach(p => ctx.fillRect(p.x, p.y, p.width, p.height));
+      }
+
+      function updatePlatforms() {
+        platforms.forEach(p => {
+          p.y += 2;
+          if(p.y > HEIGHT) {
+            p.y = 0;
+            p.x = Math.random() * (WIDTH - platformWidth);
+            score++;
+            feverScore++;
+            updateScore();
+            playSound(scoreSound);
+            if (feverScore >= 5 && !feverMode) activateFever();
+          }
+        });
+      }
+
+      function drawItems() {
+        ctx.fillStyle = '#ffe066';
+        items.forEach(i => {
+          ctx.beginPath();
+          ctx.arc(i.x, i.y, 10, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      function updateItems() {
+        items.forEach(i => i.y += 2);
+        items = items.filter(i => i.y < HEIGHT);
+      }
+
+      function checkItemCollision() {
+        items = items.filter(i => {
+          let dx = player.x + player.width/2 - i.x;
+          let dy = player.y + player.height/2 - i.y;
+          if(Math.sqrt(dx*dx + dy*dy) < 30) {
+            score += 5;
+            updateScore();
+            return false;
+          }
+          return true;
+        });
+      }
+
+      function checkCollision() {
+        platforms.forEach(p => {
+          if(player.dy > 0 &&
+            player.x + player.width > p.x &&
+            player.x < p.x + p.width &&
+            player.y + player.height > p.y &&
+            player.y + player.height < p.y + p.height) {
+              player.y = p.y - player.height;
+              player.dy = 0;
+              player.onGround = true;
+          }
+        });
+      }
+
+      function drawBackground() {
+        ctx.fillStyle = feverMode ? '#ffe4e1' : '#87ceeb';
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      }
+
+      function updateScore() {
+        if(score > bestScore) {
+          bestScore = score;
+          localStorage.setItem('bestScore', bestScore);
+        }
+        scoreDiv.textContent = '점수: ' + score + ' | 최고: ' + bestScore;
+      }
+
+      function activateFever() {
+        feverMode = true;
+        feverEffect.style.display = 'block';
+        feverMusic.loop = true;
+        feverMusic.volume = 0.3;
+        feverMusic.play();
+        setTimeout(() => {
+          feverMode = false;
+          feverEffect.style.display = 'none';
+          feverMusic.pause();
+          feverScore = 0;
+        }, 6000);
+      }
+
+      function gameLoop() {
+        ctx.clearRect(0, 0, WIDTH, HEIGHT);
+        drawBackground();
+        drawPlatforms();
+        drawItems();
+        player.update();
+        player.draw();
+        updateItems();
+        checkItemCollision();
+        checkCollision();
+        updatePlatforms();
+        if(player.y > HEIGHT) {
+          gameOver();
+          return;
+        }
+        if(gameRunning) requestAnimationFrame(gameLoop);
+      }
+
+      function gameOver() {
+        gameRunning = false;
+        feverMusic.pause();
+        feverEffect.style.display = 'none';
+        startScreen.style.display = 'flex';
+        alert('게임 오버! 점수: ' + score);
+        score = 0;
+        feverScore = 0;
+        updateScore();
+        createPlatforms();
+        items = [];
+        player.y = HEIGHT - 80;
+        player.dy = 0;
+      }
+
+      startBtn.addEventListener('click', () => {
+        if(gameRunning) return;
+        gameRunning = true;
+        startScreen.style.display = 'none';
+        score = 0;
+        feverScore = 0;
+        updateScore();
+        createPlatforms();
+        player.y = HEIGHT - 80;
+        player.dy = 0;
+        items = [];
+        setInterval(() => {
+          if (gameRunning) items.push({x: Math.random() * (WIDTH - 20) + 10, y: -20});
+        }, 3000);
+        gameLoop();
+      });
+
+      window.addEventListener('touchstart', () => { if(gameRunning) player.jump(); });
+      window.addEventListener('keydown', e => { if(e.code === 'Space' && gameRunning) player.jump(); });
     };
-
-    let platforms = [];
-    const platformCount = 5;
-    const platformWidth = 100;
-    const platformHeight = 15;
-
-    function createPlatforms() {
-      platforms = [];
-      let spacing = HEIGHT / platformCount;
-      for(let i=0; i < platformCount; i++) {
-        let px = Math.random() * (WIDTH - platformWidth);
-        let py = HEIGHT - i * spacing - platformHeight;
-        platforms.push({x: px, y: py, width: platformWidth, height: platformHeight});
-      }
-    }
-
-    function drawPlatforms() {
-      ctx.fillStyle = '#d17c25';
-      platforms.forEach(p => {
-        ctx.fillRect(p.x, p.y, p.width, p.height);
-      });
-    }
-
-    function updatePlatforms() {
-      platforms.forEach(p => {
-        p.y += 2; // 플랫폼 아래로 스크롤
-        if(p.y > HEIGHT) {
-          p.y = 0;
-          p.x = Math.random() * (WIDTH - platformWidth);
-          score++;
-          scoreDiv.textContent = '점수: ' + score;
-          playSound(scoreSound);
-        }
-      });
-    }
-
-    function checkCollision() {
-      platforms.forEach(p => {
-        if(player.dy > 0 &&
-          player.x + player.width > p.x &&
-          player.x < p.x + p.width &&
-          player.y + player.height > p.y &&
-          player.y + player.height < p.y + p.height
-        ) {
-          player.y = p.y - player.height;
-          player.dy = 0;
-          player.onGround = true;
-        }
-      });
-    }
-
-    // 배경 그리기 (간단 구름과 하늘)
-    function drawBackground() {
-      ctx.fillStyle = '#87ceeb';
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      // 구름
-      ctx.fillStyle = '#fff';
-      let cloudX = (Date.now() / 30) % (WIDTH + 100) - 100;
-      ctx.beginPath();
-      ctx.ellipse(cloudX, 100, 50, 30, 0, 0, Math.PI * 2);
-      ctx.ellipse(cloudX + 40, 100, 40, 30, 0, 0, Math.PI * 2);
-      ctx.ellipse(cloudX + 70, 110, 45, 35, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // 사운드 효과 준비
-    const jumpSound = new Audio('https://cdn.pixabay.com/download/audio/2021/09/09/audio_3d64f8e5f5.mp3?filename=jump-14558.mp3');
-    const scoreSound = new Audio('https://cdn.pixabay.com/download/audio/2021/09/10/audio_37b3b3a64a.mp3?filename=coin-14003.mp3');
-
-    function playSound(sound) {
-      sound.pause();
-      sound.currentTime = 0;
-      sound.volume = 0.3;
-      sound.play().catch(e => {
-        // 모바일 사파리 등에서 자동 재생 제한으로 오류 무시
-      });
-    }
-
-    // 게임 루프
-    function gameLoop() {
-      ctx.clearRect(0, 0, WIDTH, HEIGHT);
-      drawBackground();
-      drawPlatforms();
-      player.update();
-      player.draw();
-      checkCollision();
-      updatePlatforms();
-
-      if(player.y > HEIGHT) {
-        gameOver();
-        return;
-      }
-
-      if(gameRunning) {
-        requestAnimationFrame(gameLoop);
-      }
-    }
-
-    function gameOver() {
-      gameRunning = false;
-      startBtn.style.display = 'block';
-      alert('게임 오버! 점수: ' + score);
-      score = 0;
-      scoreDiv.textContent = '점수: 0';
-      createPlatforms();
-      player.y = HEIGHT - 80;
-      player.dy = 0;
-    }
-
-    startBtn.addEventListener('click', () => {
-      if(gameRunning) return;
-      gameRunning = true;
-      startBtn.style.display = 'none';
-      score = 0;
-      scoreDiv.textContent = '점수: 0';
-      createPlatforms();
-      player.y = HEIGHT - 80;
-      player.dy = 0;
-      gameLoop();
-    });
-
-    // 터치 또는 스페이스바 점프 이벤트
-    window.addEventListener('touchstart', e => {
-      if(gameRunning) player.jump();
-    });
-
-    window.addEventListener('keydown', e => {
-      if(e.code === 'Space' && gameRunning) {
-        player.jump();
-      }
-    });
-  </script>
-</body>
+  </script></body>
 </html>
